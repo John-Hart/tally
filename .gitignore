@@ -39,3 +39,6 @@ output/
 
 # PyInstaller
 *.spec
+
+# Playwright MCP
+.playwright-mcp/
