@@ -50,12 +50,30 @@ AI: "Done. Only 3% unknown now. Here's your spending breakdown..."
 
 The AI handles the *understanding*. Tally handles the *execution*.
 
+## Installation
+
+**Linux/macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/davidfowl/tally/main/install.sh | bash
+```
+Installs to `/usr/local/bin/tally`. Set `INSTALL_DIR` to customize.
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/davidfowl/tally/main/install.ps1 | iex
+```
+Installs to `%LOCALAPPDATA%\tally` and adds to PATH.
+
+**With uv (Python):**
+```bash
+uv tool install git+https://github.com/davidfowl/tally
+```
+
+**Manual download:** See [Releases](https://github.com/davidfowl/tally/releases) for standalone binaries.
+
 ## Quick Start
 
 ```bash
-# Install
-uv tool install git+https://github.com/davidfowl/tally
-
 # Initialize a budget directory
 tally init ./my-budget
 
