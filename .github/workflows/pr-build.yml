@@ -11,20 +11,13 @@ on:
         type: number
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-amd64
-          - os: macos-15-intel
-            platform: macos-amd64
-          - os: macos-latest
-            platform: macos-arm64
-          - os: windows-latest
-            platform: windows-amd64
-    runs-on: ${{ matrix.os }}
-
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr.outputs.number }}
+      head_sha: ${{ steps.pr.outputs.sha }}
+      short_sha: ${{ steps.pr.outputs.short_sha }}
+      version: ${{ steps.pr.outputs.version }}
     steps:
       - name: Get PR info
         id: pr
@@ -37,86 +30,36 @@ jobs:
             PR_NUMBER="${{ github.event.pull_request.number }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           fi
+          SHORT_SHA="${HEAD_SHA:0:7}"
+          VERSION="0.0.${PR_NUMBER}-${SHORT_SHA}"
+
           echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "sha=$HEAD_SHA" >> $GITHUB_OUTPUT
-          echo "short_sha=${HEAD_SHA:0:7}" >> $GITHUB_OUTPUT
-        shell: bash
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.pr.outputs.sha }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --extra build
-
-      - name: Inject PR version info
-        run: |
-          # PR version: 0.0.<pr_number>-<short_sha>
-          PR_VERSION="0.0.${{ steps.pr.outputs.number }}-${{ steps.pr.outputs.short_sha }}"
-          sed -i.bak "s/^VERSION = .*/VERSION = \"${PR_VERSION}\"/" src/tally/_version.py
-          sed -i.bak "s/^GIT_SHA = .*/GIT_SHA = \"${{ steps.pr.outputs.sha }}\"/" src/tally/_version.py
-          sed -i.bak "s|^REPO_URL = .*|REPO_URL = \"https://github.com/${{ github.repository }}\"|" src/tally/_version.py
-          rm -f src/tally/_version.py.bak
-          cat src/tally/_version.py
-        shell: bash
-
-      - name: Build executable
-        run: uv run pyinstaller --onefile src/tally/__main__.py --name tally
-
-      - name: Create zip (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd dist
-          zip tally-${{ matrix.platform }}.zip tally
-
-      - name: Create zip (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd dist
-          Compress-Archive -Path tally.exe -DestinationPath tally-${{ matrix.platform }}.zip
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tally-${{ matrix.platform }}
-          path: dist/tally-${{ matrix.platform }}.zip
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      git_sha: ${{ needs.prepare.outputs.head_sha }}
+      ref: ${{ needs.prepare.outputs.head_sha }}
 
   comment:
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
 
     steps:
-      - name: Get PR info
-        id: pr
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            PR_NUMBER="${{ inputs.pr_number }}"
-            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER)
-            HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
-          else
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          fi
-          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          echo "short_sha=${HEAD_SHA:0:7}" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Build comment body
         run: |
-          PR_NUMBER="${{ steps.pr.outputs.number }}"
+          PR_NUMBER="${{ needs.prepare.outputs.pr_number }}"
           RUN_ID="${{ github.run_id }}"
-          SHORT_SHA="${{ steps.pr.outputs.short_sha }}"
+          SHORT_SHA="${{ needs.prepare.outputs.short_sha }}"
 
           cat > comment.md << 'EOF'
           ## PR Build Available
@@ -158,7 +101,7 @@ jobs:
         uses: peter-evans/find-comment@v3
         id: find
         with:
-          issue-number: ${{ steps.pr.outputs.number }}
+          issue-number: ${{ needs.prepare.outputs.pr_number }}
           comment-author: 'github-actions[bot]'
           body-includes: '## PR Build Available'
 
@@ -166,6 +109,6 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.find.outputs.comment-id }}
-          issue-number: ${{ steps.pr.outputs.number }}
+          issue-number: ${{ needs.prepare.outputs.pr_number }}
           body-path: comment.md
           edit-mode: replace

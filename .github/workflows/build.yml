@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version string to inject (e.g., 0.1.123 or 0.0.18-abc1234)'
+        required: true
+        type: string
+      git_sha:
+        description: 'Full git SHA for version info'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout (optional, defaults to triggering ref)'
+        required: false
+        type: string
+        default: ''
+      fetch_depth:
+        description: 'Git fetch depth (0 for full history)'
+        required: false
+        type: number
+        default: 1
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-amd64
+          - os: macos-15-intel
+            platform: macos-amd64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-amd64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: ${{ inputs.fetch_depth }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra build
+
+      - name: Inject version info
+        run: |
+          sed -i.bak "s/^VERSION = .*/VERSION = \"${{ inputs.version }}\"/" src/tally/_version.py
+          sed -i.bak "s/^GIT_SHA = .*/GIT_SHA = \"${{ inputs.git_sha }}\"/" src/tally/_version.py
+          sed -i.bak "s|^REPO_URL = .*|REPO_URL = \"https://github.com/${{ github.repository }}\"|" src/tally/_version.py
+          rm -f src/tally/_version.py.bak
+          cat src/tally/_version.py
+        shell: bash
+
+      - name: Build executable
+        run: uv run pyinstaller --onefile src/tally/__main__.py --name tally
+
+      - name: Create zip (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          zip tally-${{ matrix.platform }}.zip tally
+
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd dist
+          Compress-Archive -Path tally.exe -DestinationPath tally-${{ matrix.platform }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tally-${{ matrix.platform }}
+          path: dist/tally-${{ matrix.platform }}.zip

@@ -10,71 +10,10 @@ on:
         default: ''
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-amd64
-          - os: macos-15-intel
-            platform: macos-amd64
-          - os: macos-latest
-            platform: macos-arm64
-          - os: windows-latest
-            platform: windows-amd64
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for commit count
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --extra build
-
-      - name: Inject version info
-        run: |
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          sed -i.bak "s/^VERSION = .*/VERSION = \"0.1.${COMMIT_COUNT}\"/" src/tally/_version.py
-          sed -i.bak "s/^GIT_SHA = .*/GIT_SHA = \"${{ github.sha }}\"/" src/tally/_version.py
-          sed -i.bak "s|^REPO_URL = .*|REPO_URL = \"https://github.com/${{ github.repository }}\"|" src/tally/_version.py
-          rm -f src/tally/_version.py.bak
-          cat src/tally/_version.py
-        shell: bash
-
-      - name: Build executable
-        run: uv run pyinstaller --onefile src/tally/__main__.py --name tally
-
-      - name: Create zip (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd dist
-          zip tally-${{ matrix.platform }}.zip tally
-
-      - name: Create zip (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd dist
-          Compress-Archive -Path tally.exe -DestinationPath tally-${{ matrix.platform }}.zip
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tally-${{ matrix.platform }}
-          path: dist/tally-${{ matrix.platform }}.zip
-
-  release:
-    needs: build
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,6 +26,21 @@ jobs:
           echo "version=0.1.${COMMIT_COUNT}" >> $GITHUB_OUTPUT
           echo "Version: 0.1.${COMMIT_COUNT}"
 
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      git_sha: ${{ github.sha }}
+      fetch_depth: 0
+
+  release:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
       - name: Build release body
         id: body
         env:
@@ -132,8 +86,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Tally v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: Tally v${{ needs.prepare.outputs.version }}
           draft: false
           prerelease: false
           files: |
