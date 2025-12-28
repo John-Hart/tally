@@ -44,6 +44,8 @@ tally run                    # Generate spending report
 
 ```yaml
 year: 2025
+currency_format: "€{amount}"  # Optional: €1,234 or "{amount} zł" for 1,234 zł
+
 data_sources:
   - name: AMEX
     file: data/amex.csv
