@@ -28,13 +28,28 @@ def _supports_color():
 
 def _setup_windows_encoding():
     """Set UTF-8 encoding on Windows to support Unicode output."""
-    if sys.platform == 'win32':
+    if sys.platform != 'win32':
+        return
+
+    import codecs
+
+    for stream_name in ('stdout', 'stderr'):
+        stream = getattr(sys, stream_name)
+        # Skip if already UTF-8
+        if getattr(stream, 'encoding', '').lower().replace('-', '') == 'utf8':
+            continue
         try:
-            # Try to set UTF-8 mode
-            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+            # Method 1: reconfigure (works in normal Python 3.7+)
+            stream.reconfigure(encoding='utf-8', errors='replace')
         except (AttributeError, OSError):
-            pass  # Older Python or not supported
+            try:
+                # Method 2: Use codecs writer (more reliable for PyInstaller)
+                if hasattr(stream, 'buffer'):
+                    writer = codecs.getwriter('utf-8')(stream.buffer, errors='replace')
+                    writer.encoding = 'utf-8'
+                    setattr(sys, stream_name, writer)
+            except Exception:
+                pass
 
 _setup_windows_encoding()
 
