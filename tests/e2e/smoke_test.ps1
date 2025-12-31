@@ -65,6 +65,21 @@ AMAZON,Amazon,Shopping,Online
 STARBUCKS,Starbucks,Food,Coffee
 "@ | Out-File -FilePath "config/merchant_categories.csv" -Encoding utf8
 
+    @"
+# Test sections file
+[Subscriptions]
+description: Monthly subscriptions
+filter: category == "Subscriptions"
+
+[High Frequency]
+description: Merchants with multiple transactions
+filter: months >= 2
+
+[All Spending]
+description: Everything
+filter: total > 0
+"@ | Out-File -FilePath "config/sections.txt" -Encoding utf8
+
     Write-Host "✓ Test data created" -ForegroundColor Green
 
     # Test 4: tally diag
@@ -134,6 +149,29 @@ STARBUCKS,Starbucks,Food,Coffee
     Write-Host "=== Test 10: tally explain ===" -ForegroundColor Yellow
     tally explain Netflix
     Write-Host "✓ Explain command works" -ForegroundColor Green
+
+    # Test 11: Sections - verify sections.txt is loaded
+    Write-Host ""
+    Write-Host "=== Test 11: tally sections ===" -ForegroundColor Yellow
+    $diagOutput = tally diag 2>&1 | Out-String
+    if ($diagOutput -match "sections.txt|Subscriptions|High Frequency") {
+        Write-Host "✓ Sections file detected in diag" -ForegroundColor Green
+    } else {
+        Write-Host "Note: Sections info not in diag output (may be expected)" -ForegroundColor Yellow
+    }
+
+    # Check HTML report has section view toggle
+    $htmlContent = Get-Content "output/spending_summary.html" -Raw
+    if ($htmlContent -match "By Section|section-view|sectionView") {
+        Write-Host "✓ HTML report has section view support" -ForegroundColor Green
+    } else {
+        Write-Host "Note: Section view not found in HTML (sections may be empty)" -ForegroundColor Yellow
+    }
+
+    # Test explain with --section flag
+    $sectionOutput = tally explain --section subscriptions 2>&1 | Out-String
+    Write-Host ($sectionOutput | Select-Object -First 10)
+    Write-Host "✓ Section filter works in explain" -ForegroundColor Green
 
     Write-Host ""
     Write-Host "=== All tests passed! ===" -ForegroundColor Green

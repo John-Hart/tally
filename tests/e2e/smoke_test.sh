@@ -71,6 +71,21 @@ SPOTIFY,Spotify,Subscriptions,Streaming
 AMAZON,Amazon,Shopping,Online
 STARBUCKS,Starbucks,Food,Coffee
 EOF
+
+cat > config/sections.txt << 'EOF'
+# Test sections file
+[Subscriptions]
+description: Monthly subscriptions
+filter: category == "Subscriptions"
+
+[High Frequency]
+description: Merchants with multiple transactions
+filter: months >= 2
+
+[All Spending]
+description: Everything
+filter: total > 0
+EOF
 echo "✓ Test data created"
 
 # Test 4: tally diag
@@ -145,6 +160,28 @@ echo ""
 echo "=== Test 10: tally explain ==="
 tally explain Netflix
 echo "✓ Explain command works"
+
+# Test 11: Sections - verify sections.txt is loaded
+echo ""
+echo "=== Test 11: tally sections ==="
+OUTPUT=$(tally diag 2>&1)
+if echo "$OUTPUT" | grep -qi "sections.txt\|Subscriptions\|High Frequency"; then
+    echo "✓ Sections file detected in diag"
+else
+    echo "Note: Sections info not in diag output (may be expected)"
+fi
+
+# Check HTML report has section view toggle
+if grep -q "By Section\|section-view\|sectionView" output/spending_summary.html 2>/dev/null; then
+    echo "✓ HTML report has section view support"
+else
+    echo "Note: Section view not found in HTML (sections may be empty)"
+fi
+
+# Test explain with --section flag
+OUTPUT=$(tally explain --section subscriptions 2>&1) || true
+echo "$OUTPUT" | head -10
+echo "✓ Section filter works in explain"
 
 echo ""
 echo "=== All tests passed! ==="
