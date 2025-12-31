@@ -787,6 +787,10 @@ def classify_by_sections(by_merchant, sections_config, num_months=12):
     if sections_config is None:
         return {}
 
+    # Collect all unique months across all transactions for period_data
+    all_months = set()
+    all_years = set()
+
     # Convert by_merchant to the format expected by section_engine
     merchant_groups = []
     for merchant_name, data in by_merchant.items():
@@ -797,14 +801,18 @@ def classify_by_sections(by_merchant, sections_config, num_months=12):
         # Convert transaction format for section_engine
         section_txns = []
         for txn in txns:
+            txn_date = datetime.strptime(txn['month'] + '-15', '%Y-%m-%d')
             section_txns.append({
                 'amount': txn['amount'],
-                'date': datetime.strptime(txn['month'] + '-15', '%Y-%m-%d'),  # Reconstruct date from month
+                'date': txn_date,
                 'category': data.get('category', ''),
                 'subcategory': data.get('subcategory', ''),
                 'merchant': merchant_name,
                 'tags': list(data.get('tags', [])),
             })
+            # Track global periods
+            all_months.add(txn['month'])
+            all_years.add(txn_date.year)
 
         merchant_groups.append({
             'merchant': merchant_name,
@@ -814,11 +822,18 @@ def classify_by_sections(by_merchant, sections_config, num_months=12):
             'data': data,  # Keep reference to original data
         })
 
+    # Compute period_data from all transactions
+    period_data = {
+        'month': len(all_months) if all_months else num_months,
+        'year': len(all_years) if all_years else 1,
+    }
+
     # Classify using section_engine
     section_results = section_engine.classify_merchants(
         sections_config,
         merchant_groups,
-        num_months
+        num_months,
+        period_data=period_data,
     )
 
     # Convert results back to (merchant_name, data) tuples

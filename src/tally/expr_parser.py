@@ -121,10 +121,12 @@ class ExpressionContext:
         transactions: Optional[List[Dict]] = None,
         num_months: int = 12,
         variables: Optional[Dict[str, Any]] = None,
+        period_data: Optional[Dict[str, int]] = None,
     ):
         self.transactions = transactions or []
         self.num_months = num_months
         self.variables = variables or {}
+        self.period_data = period_data or {}  # {'month': 12, 'year': 1, ...}
 
         # Built-in functions
         self.functions: Dict[str, Callable] = {
@@ -137,6 +139,9 @@ class ExpressionContext:
             'abs': abs,
             'round': round,
             'by': self._fn_by,
+            'period': self._fn_period,
+            'max_val': self._fn_max_val,
+            'min_val': self._fn_min_val,
         }
 
     def get_payments(self) -> List[float]:
@@ -275,6 +280,30 @@ class ExpressionContext:
     def _fn_by(self, field: str) -> List[List[float]]:
         """Group payments by field. Returns list of lists."""
         return self.get_by(field)
+
+    def _fn_period(self, field: str) -> int:
+        """Get total unique periods across all transactions (global).
+
+        This returns the analysis period length, not the merchant's active months.
+        Supported fields: month, year, week, day
+        """
+        field = field.lower()
+        if field not in self.period_data:
+            # If not provided, return a sensible default
+            if field == 'month':
+                return 12  # Assume full year
+            elif field == 'year':
+                return 1
+            raise ExpressionError(f"Unknown period field: {field}. Use: month, year, week, day")
+        return self.period_data[field]
+
+    def _fn_max_val(self, a: float, b: float) -> float:
+        """Return the maximum of two scalar values."""
+        return max(a, b)
+
+    def _fn_min_val(self, a: float, b: float) -> float:
+        """Return the minimum of two scalar values."""
+        return min(a, b)
 
 
 class ExpressionEvaluator:
@@ -474,6 +503,7 @@ def evaluate_filter(
     transactions: List[Dict],
     num_months: int = 12,
     variables: Optional[Dict[str, Any]] = None,
+    period_data: Optional[Dict[str, int]] = None,
 ) -> bool:
     """
     Evaluate a filter expression against transactions.
@@ -484,6 +514,7 @@ def evaluate_filter(
         transactions=transactions,
         num_months=num_months,
         variables=variables or {},
+        period_data=period_data,
     )
     result = evaluate(expr, ctx)
     return bool(result)
@@ -493,10 +524,12 @@ def create_context(
     transactions: Optional[List[Dict]] = None,
     num_months: int = 12,
     variables: Optional[Dict[str, Any]] = None,
+    period_data: Optional[Dict[str, int]] = None,
 ) -> ExpressionContext:
     """Create an expression evaluation context."""
     return ExpressionContext(
         transactions=transactions,
         num_months=num_months,
         variables=variables,
+        period_data=period_data,
     )

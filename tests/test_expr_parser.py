@@ -782,3 +782,119 @@ class TestByComposition:
         # max=400, avg=200, ratio=2.0
         result = evaluate("max(sum(by('month'))) / avg(sum(by('month')))", ctx)
         assert result == 2.0
+
+
+# =============================================================================
+# Period Function Tests
+# =============================================================================
+
+class TestPeriodFunction:
+    """Test the period() function for global analysis period."""
+
+    def test_period_month_from_data(self):
+        """period('month') returns value from period_data."""
+        ctx = create_context(
+            transactions=make_transactions([100]),
+            period_data={'month': 12, 'year': 1}
+        )
+        result = evaluate("period('month')", ctx)
+        assert result == 12
+
+    def test_period_year_from_data(self):
+        """period('year') returns value from period_data."""
+        ctx = create_context(
+            transactions=make_transactions([100]),
+            period_data={'month': 12, 'year': 1}
+        )
+        result = evaluate("period('year')", ctx)
+        assert result == 1
+
+    def test_period_month_default(self):
+        """period('month') defaults to 12 if not provided."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("period('month')", ctx)
+        assert result == 12
+
+    def test_period_year_default(self):
+        """period('year') defaults to 1 if not provided."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("period('year')", ctx)
+        assert result == 1
+
+    def test_period_in_threshold(self):
+        """period() can be used in threshold calculations."""
+        ctx = create_context(
+            transactions=make_transactions([100, 200, 300]),  # 3 months
+            period_data={'month': 12}
+        )
+        # months=3, period('month')=12, threshold=6
+        result = evaluate("months >= period('month') * 0.5", ctx)
+        assert result is False  # 3 < 6
+
+    def test_period_partial_year(self):
+        """period() works for partial year analysis."""
+        ctx = create_context(
+            transactions=make_transactions([100, 200, 300]),  # 3 months active
+            period_data={'month': 6}  # Only 6 months of data
+        )
+        # months=3, period('month')=6, threshold=3
+        result = evaluate("months >= period('month') * 0.5", ctx)
+        assert result is True  # 3 >= 3
+
+
+# =============================================================================
+# Scalar Max/Min Tests
+# =============================================================================
+
+class TestScalarMaxMin:
+    """Test max_val() and min_val() for scalar comparisons."""
+
+    def test_max_val_first_larger(self):
+        """max_val returns first when larger."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("max_val(10, 5)", ctx)
+        assert result == 10
+
+    def test_max_val_second_larger(self):
+        """max_val returns second when larger."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("max_val(5, 10)", ctx)
+        assert result == 10
+
+    def test_max_val_equal(self):
+        """max_val with equal values."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("max_val(5, 5)", ctx)
+        assert result == 5
+
+    def test_min_val_first_smaller(self):
+        """min_val returns first when smaller."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("min_val(5, 10)", ctx)
+        assert result == 5
+
+    def test_min_val_second_smaller(self):
+        """min_val returns second when smaller."""
+        ctx = create_context(transactions=make_transactions([100]))
+        result = evaluate("min_val(10, 5)", ctx)
+        assert result == 5
+
+    def test_max_val_with_expression(self):
+        """max_val with computed expressions."""
+        ctx = create_context(
+            transactions=make_transactions([100]),
+            period_data={'month': 12}
+        )
+        # max_val(2, 12 * 0.5) = max_val(2, 6) = 6
+        result = evaluate("max_val(2, period('month') * 0.5)", ctx)
+        assert result == 6
+
+    def test_max_val_threshold_floor(self):
+        """max_val provides floor for proportional thresholds."""
+        ctx = create_context(
+            transactions=make_transactions([100]),
+            period_data={'month': 3}  # Short period
+        )
+        # max_val(2, 3 * 0.5) = max_val(2, 1.5) = 2
+        result = evaluate("max_val(2, period('month') * 0.5)", ctx)
+        assert result == 2

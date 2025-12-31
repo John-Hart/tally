@@ -214,6 +214,7 @@ def evaluate_variables(
     transactions: List[Dict],
     num_months: int = 12,
     existing_vars: Optional[Dict[str, Any]] = None,
+    period_data: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """
     Evaluate a set of variable expressions.
@@ -225,6 +226,7 @@ def evaluate_variables(
         transactions: Transaction data for context
         num_months: Number of months in data period
         existing_vars: Pre-existing variables to include
+        period_data: Global period data for period() function
 
     Returns:
         Dict of variable_name -> evaluated_value
@@ -235,7 +237,8 @@ def evaluate_variables(
         ctx = expr_parser.create_context(
             transactions=transactions,
             num_months=num_months,
-            variables=result
+            variables=result,
+            period_data=period_data,
         )
         try:
             value = expr_parser.evaluate(expr, ctx)
@@ -252,6 +255,7 @@ def evaluate_section_filter(
     transactions: List[Dict],
     num_months: int = 12,
     global_vars: Optional[Dict[str, Any]] = None,
+    period_data: Optional[Dict[str, int]] = None,
 ) -> bool:
     """
     Evaluate a section's filter against transactions.
@@ -261,6 +265,7 @@ def evaluate_section_filter(
         transactions: Transaction data for context
         num_months: Number of months in data period
         global_vars: Pre-evaluated global variables
+        period_data: Global period data for period() function
 
     Returns:
         True if the filter matches, False otherwise
@@ -274,7 +279,8 @@ def evaluate_section_filter(
             section.variables,
             transactions,
             num_months,
-            variables
+            variables,
+            period_data,
         )
         variables.update(local_vars)
 
@@ -282,7 +288,8 @@ def evaluate_section_filter(
     ctx = expr_parser.create_context(
         transactions=transactions,
         num_months=num_months,
-        variables=variables
+        variables=variables,
+        period_data=period_data,
     )
 
     try:
@@ -299,6 +306,7 @@ def classify_merchants(
     config: SectionConfig,
     merchant_groups: List[Dict],
     num_months: int = 12,
+    period_data: Optional[Dict[str, int]] = None,
 ) -> Dict[str, List[Dict]]:
     """
     Classify merchant groups into sections.
@@ -307,6 +315,7 @@ def classify_merchants(
         config: Parsed section configuration
         merchant_groups: List of merchant group dicts with transactions
         num_months: Number of months in data period
+        period_data: Global period data for period() function
 
     Returns:
         Dict mapping section_name -> list of matching merchant groups
@@ -320,12 +329,13 @@ def classify_merchants(
         global_vars = evaluate_variables(
             config.global_variables,
             transactions,
-            num_months
+            num_months,
+            period_data=period_data,
         )
 
         # Check each section filter
         for section in config.sections:
-            if evaluate_section_filter(section, transactions, num_months, global_vars):
+            if evaluate_section_filter(section, transactions, num_months, global_vars, period_data):
                 result[section.name].append(merchant)
 
     return result
@@ -338,7 +348,18 @@ def classify_merchants(
 DEFAULT_SECTIONS = """# Tally Sections Configuration
 # Each section defines a view into your spending data.
 # Sections can overlap - the same merchant can appear in multiple sections.
-# Uses Python expression syntax (== for equality, and/or/not for boolean logic)
+#
+# PRIMITIVES: months, total, cv, category, subcategory, merchant, tags, payments
+# FUNCTIONS:  sum, count, avg, min, max, stddev, abs, round
+#             by(field) - group by month/year/week/day
+#             period(field) - analysis period length
+#             max_val(a,b), min_val(a,b) - scalar comparisons
+#
+# EXAMPLES:
+#   filter: category == "Food"
+#   filter: months >= 6 and cv < 0.3
+#   filter: max(sum(by("month"))) > 500
+#   filter: months >= max_val(2, period("month") * 0.5)
 
 [Total]
 filter: True
@@ -365,7 +386,7 @@ filter: category == "Shopping"
 filter: category == "Health"
 
 [Big Purchases]
-filter: sum(payments) > 1000 and months <= 3
+filter: total > 1000 and months <= 3
 """
 
 

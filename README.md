@@ -202,6 +202,8 @@ filter: "business" in tags
 | `min(x)`, `max(x)`, `stddev(x)` | Statistical functions |
 | `abs(x)`, `round(x)` | Math functions |
 | `by(field)` | Group payments by field (month, year, week, day) |
+| `period(field)` | Total analysis period (e.g., `period("month")` = 12 for full year) |
+| `max_val(a, b)`, `min_val(a, b)` | Scalar max/min for threshold calculations |
 
 **Grouping with `by()`:**
 
@@ -226,6 +228,19 @@ filter: peak_ratio > 2
 
 [Consistent]
 filter: my_cv < 0.3
+```
+
+**Proportional thresholds with `period()` and `max_val()`:**
+```
+# Thresholds that adapt to partial-year analysis
+bill_threshold = max_val(2, period("month") * 0.5)    # 50% of months, min 2
+general_threshold = max_val(3, period("month") * 0.75) # 75% of months, min 3
+
+[Monthly Bills]
+filter: category == "Bills" and months >= bill_threshold
+
+[Frequent Spending]
+filter: months >= general_threshold
 ```
 
 **Advanced filter examples:**
