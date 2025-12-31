@@ -2358,6 +2358,7 @@ def cmd_workflow(args):
     print()
     print(f"    {C.DIM}Primitives: months, total, cv, category, subcategory, tags, payments{C.RESET}")
     print(f"    {C.DIM}Functions: sum(), avg(), count(), min(), max(), stddev(), by(){C.RESET}")
+    print(f"    {C.DIM}Grouping: sum(by(\"month\")) for monthly totals{C.RESET}")
     print()
 
 
