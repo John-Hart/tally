@@ -11,87 +11,9 @@ from typing import List, Optional, Tuple, Dict, Any
 from pathlib import Path
 
 
-# Default rules that replicate current hardcoded behavior
-DEFAULT_RULES = """# Tally Classification Rules
-# Syntax: CONDITION[modifier] -> bucket,calc_type
-#
-# Conditions:
-#   category=X           Match category
-#   subcategory=X        Match subcategory
-#   category=X,subcategory=Y  Match both
-#
-# Modifiers (in square brackets):
-#   [months>=N]          Month count threshold
-#   [months>=N%]         Percentage of data period (50% of 12 months = 6)
-#   [count<=N]           Transaction count
-#   [total>N]            Total amount
-#   [cv>N]               Coefficient of variation (payment consistency)
-#   [max>N]              Maximum single payment
-#   [max_avg_ratio>N]    Ratio of max to average payment
-#
-# Buckets: travel, annual, periodic, monthly, one_off, variable
-# Calc types: avg (when active), /12 (annual spread), auto (cv-based)
-#
-# Note: Transactions are excluded from spending via special tags (income, refund, transfer)
-# rather than categories. See 'tally workflow' for details.
-
-# Travel
-category=Travel -> travel,/12
-
-# Annual bills (once or twice a year)
-category=Bills,subcategory=Insurance[months<=2][count<=2] -> annual,/12
-category=Bills,subcategory=Tax[months<=2] -> annual,/12
-category=Bills,subcategory=Membership[months<=2] -> annual,/12
-category=Family,subcategory=Charity -> annual,/12
-category=Charity,subcategory=Donation -> annual,/12
-
-# Periodic (quarterly, treatment series, lumpy)
-category=Education,subcategory=Tuition -> periodic,/12
-category=Bills,subcategory=Insurance[months>=3] -> periodic,/12
-category=Health,subcategory=Medical[months>=2] -> periodic,/12
-category=Health,subcategory=Dental[months>=2] -> periodic,/12
-category=Health,subcategory=Orthodontics[months>=2] -> periodic,/12
-category=Bills[total>5000][cv>0.8][max_avg_ratio>3] -> periodic,/12
-category=Education[total>5000][cv>0.8][max_avg_ratio>3] -> periodic,/12
-category=Health[total>5000][cv>0.8][max_avg_ratio>3] -> periodic,/12
-
-# Monthly recurring (bills: 50% threshold, services: 75%)
-category=Bills[months>=50%] -> monthly,auto
-category=Utilities[months>=50%] -> monthly,auto
-category=Subscriptions[months>=50%] -> monthly,auto
-category=Home,subcategory=Lawn[months>=75%] -> monthly,auto
-category=Home,subcategory=Security[months>=75%] -> monthly,auto
-category=Home,subcategory=Cleaning[months>=75%] -> monthly,auto
-category=Health,subcategory=Gym[months>=75%] -> monthly,auto
-category=Health,subcategory=Fitness[months>=75%] -> monthly,auto
-category=Health,subcategory=Pharmacy[months>=75%] -> monthly,auto
-category=Food,subcategory=Grocery[months>=75%] -> monthly,auto
-category=Food,subcategory=Delivery[months>=75%] -> monthly,auto
-category=Transport,subcategory=Gas[months>=75%] -> monthly,auto
-category=Transport,subcategory=Parking[months>=75%] -> monthly,auto
-category=Transport,subcategory=Transit[months>=75%] -> monthly,auto
-category=Personal,subcategory=Childcare[months>=75%] -> monthly,auto
-category=Personal,subcategory=Services[months>=75%] -> monthly,auto
-category=Personal,subcategory=Grooming[months>=75%] -> monthly,auto
-
-# One-off (high value, infrequent)
-subcategory=Procedure -> one_off,/12
-category=Shopping[months<=3][total>1000] -> one_off,/12
-category=Home[months<=3][total>1000] -> one_off,/12
-category=Personal[months<=3][total>1000] -> one_off,/12
-subcategory=Improvement[months<=3][total>1000] -> one_off,/12
-subcategory=Appliance[months<=3][total>1000] -> one_off,/12
-subcategory=HVAC[months<=3][total>1000] -> one_off,/12
-subcategory=Repair[months<=3][total>1000] -> one_off,/12
-subcategory=Furniture[months<=3][total>1000] -> one_off,/12
-subcategory=Electronics[months<=3][total>1000] -> one_off,/12
-subcategory=Jewelry[months<=3][total>1000] -> one_off,/12
-subcategory=Luxury[months<=3][total>1000] -> one_off,/12
-
-# Variable: frequent (50%+ months) and consistent (CV < 0.3) -> use average
-[months>=50%][cv<0.3] -> variable,avg
-
-# Default: everything else is variable with /12
+# Minimal fallback - everything is variable, spread over 12 months
+# Users can create classification_rules.txt for custom bucketing
+FALLBACK_RULES = """# Default fallback: all spending is variable
 * -> variable,/12
 """
 
@@ -228,14 +150,14 @@ def load_rules(filepath: str) -> List[ClassificationRule]:
         return parse_rules(f.read())
 
 
-def get_default_rules() -> str:
-    """Return the built-in default rules as a string."""
-    return DEFAULT_RULES
+def get_fallback_rules() -> str:
+    """Return the minimal fallback rules as a string."""
+    return FALLBACK_RULES
 
 
-def get_default_rules_parsed() -> List[ClassificationRule]:
-    """Return the built-in default rules as parsed objects."""
-    return parse_rules(DEFAULT_RULES)
+def get_fallback_rules_parsed() -> List[ClassificationRule]:
+    """Return the minimal fallback rules as parsed objects."""
+    return parse_rules(FALLBACK_RULES)
 
 
 def evaluate_condition(cond: NumericCondition, stats: Dict[str, Any], num_months: int) -> bool:
@@ -338,10 +260,3 @@ def classify_merchant(
 
     # Should never reach here if rules include a default
     return ('variable', '/12')
-
-
-def write_default_rules(filepath: str) -> None:
-    """Write the default rules to a file."""
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(DEFAULT_RULES, encoding='utf-8')

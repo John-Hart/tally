@@ -2147,28 +2147,6 @@ def cmd_diag(args):
         print("  Transactions will be categorized as 'Unknown'.")
     print()
 
-    # Classification rules (occurrence-based analysis)
-    print("CLASSIFICATION RULES")
-    print("-" * 70)
-    rules_file = os.path.join(config_dir, 'classification_rules.txt')
-    print(f"Classification rules file: {rules_file}")
-    print(f"  Exists: {os.path.exists(rules_file)}")
-    if os.path.exists(rules_file):
-        # Count non-comment lines
-        with open(rules_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            rule_lines = [l for l in lines if l.strip() and not l.strip().startswith('#')]
-            print(f"  Active rules: {len(rule_lines)}")
-        print()
-        print("  Rules (determines bucket and calc_type after categorization):")
-        for line in lines:
-            stripped = line.strip()
-            if stripped and not stripped.startswith('#'):
-                print(f"    {stripped}")
-    else:
-        print("  Not found - will be created with defaults on first 'tally run'")
-    print()
-
     # Views configuration
     print("VIEWS")
     print("-" * 70)

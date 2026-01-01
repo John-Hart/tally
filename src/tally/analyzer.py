@@ -511,11 +511,11 @@ def classify_by_occurrence(merchant, data, num_months=12, rules=None):
         - calc_type: 'avg' or '/12'
         - reasoning: dict with classification details
     """
-    from .classification_rules import classify_merchant, get_default_rules_parsed
+    from .classification_rules import classify_merchant, get_fallback_rules_parsed
 
-    # Use default rules if none provided
+    # Use fallback rules if none provided
     if rules is None:
-        rules = get_default_rules_parsed()
+        rules = get_fallback_rules_parsed()
 
     # Build stats dict for rule engine
     stats = {

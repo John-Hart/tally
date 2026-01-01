@@ -7,7 +7,7 @@ Loads settings from YAML config files.
 import os
 
 from .format_parser import parse_format_string, is_special_parser_type
-from .classification_rules import load_rules, get_default_rules, write_default_rules, get_default_rules_parsed
+from .classification_rules import get_fallback_rules_parsed
 from .section_engine import load_sections, SectionParseError
 
 # Try to import yaml, fall back to simple parsing if not available
@@ -249,27 +249,9 @@ def load_config(config_dir, settings_file='settings.yaml'):
     # Currency format for display (default: USD)
     config['currency_format'] = config.get('currency_format', '${amount}')
 
-    # Load classification rules
-    rules_file = os.path.join(config_dir, 'classification_rules.txt')
-    if os.path.exists(rules_file):
-        try:
-            config['classification_rules'] = load_rules(rules_file)
-            config['_rules_file'] = rules_file
-        except Exception as e:
-            warnings.append({
-                'type': 'error',
-                'source': 'classification_rules.txt',
-                'message': f"Error loading classification rules: {e}",
-                'suggestion': "Fix the syntax error or delete the file to regenerate defaults.",
-            })
-            config['classification_rules'] = get_default_rules_parsed()
-            config['_rules_file'] = None
-    else:
-        # Create default rules file
-        write_default_rules(rules_file)
-        config['classification_rules'] = get_default_rules_parsed()
-        config['_rules_file'] = rules_file
-        # Don't warn - this is expected on first run
+    # Classification rules use minimal fallback (everything is variable)
+    # Users define views in views.rules for custom report sections
+    config['classification_rules'] = get_fallback_rules_parsed()
 
     # Load merchants file (optional - merchants_file in settings.yaml)
     # This is the new .rules format; merchant_categories.csv is deprecated
