@@ -2401,77 +2401,17 @@ def cmd_workflow(args):
     print(f"      - \"^SQ\\\\s*\\\\*\"       # Square")
     print(f"      - \"\\\\s+DES:.*$\"      # BOA suffix{C.RESET}")
 
-    section("Merchant Rules (.rules)")
-    print(f"    {C.DIM}Expression-based rules with full power:{C.RESET}")
+    section("Rule Syntax Reference")
+    print(f"    Run {C.GREEN}tally reference{C.RESET} for complete syntax documentation:")
     print()
-    print(f"    {C.DIM}[Netflix]")
-    print(f"    match: contains(\"NETFLIX\")")
-    print(f"    category: Subscriptions")
-    print(f"    subcategory: Streaming{C.RESET}")
+    print(f"    {C.DIM}• Match functions: contains(), regex(), normalized(), fuzzy(), etc.{C.RESET}")
+    print(f"    {C.DIM}• Custom fields: field.name, extraction functions{C.RESET}")
+    print(f"    {C.DIM}• Dynamic tags: {{field.txn_type}}, {{source}}{C.RESET}")
+    print(f"    {C.DIM}• Tag-only rules: add tags without changing category{C.RESET}")
+    print(f"    {C.DIM}• Views: group merchants into report sections{C.RESET}")
     print()
-    print(f"    {C.DIM}[Uber Rides]")
-    print(f"    match: regex(\"UBER\\\\s(?!EATS)\")  # not Uber Eats")
-    print(f"    category: Transportation")
-    print(f"    subcategory: Rideshare{C.RESET}")
-    print()
-    print(f"    {C.BOLD}Match functions:{C.RESET}")
-    funcs = [
-        ('contains("X")', "Case-insensitive substring match"),
-        ('regex("pattern")', "Regex pattern match"),
-        ('normalized("X")', "Match ignoring spaces/hyphens/punctuation"),
-        ('anyof("A", "B")', "Match any of multiple patterns"),
-        ('startswith("X")', "Match only at beginning"),
-        ('fuzzy("X")', "Approximate matching (catches typos)"),
-        ('amount > 100', "Amount conditions"),
-        ('month == 12', "Date components (month, year, day)"),
-    ]
-    for func, desc in funcs:
-        print(f"      {C.CYAN}{func:<22}{C.RESET} {C.DIM}{desc}{C.RESET}")
-    print()
-    print(f"    {C.DIM}First match wins — put specific patterns before general ones{C.RESET}")
-    print(f"    {C.DIM}Tags are accumulated from ALL matching rules{C.RESET}")
-
-    section("Special Tags")
-    print(f"    {C.DIM}These tags affect how transactions are treated:{C.RESET}")
-    print()
-    special_tags = [
-        ('income', "Money coming in (salary, interest, deposits)", "Excluded from spending"),
-        ('refund', "Returns/credits on purchases", "Nets against merchant spending"),
-        ('transfer', "Moving money between accounts", "Excluded from spending"),
-    ]
-    for tag, desc, effect in special_tags:
-        print(f"      {C.CYAN}{tag:<12}{C.RESET} {C.DIM}{desc}{C.RESET}")
-        print(f"      {' ':<12} {C.DIM}→ {effect}{C.RESET}")
-    print()
-    print(f"    {C.DIM}Example:{C.RESET}")
-    print(f"    {C.DIM}[CC Payment]{C.RESET}")
-    print(f"    {C.DIM}match: contains(\"PAYMENT THANK YOU\"){C.RESET}")
-    print(f"    {C.DIM}category: Finance{C.RESET}")
-    print(f"    {C.DIM}subcategory: Credit Card{C.RESET}")
-    print(f"    {C.CYAN}tags: transfer{C.RESET}")
-    print()
-    print(f"    {C.DIM}[Amazon Refund]{C.RESET}")
-    print(f"    {C.DIM}match: contains(\"AMAZON\") and amount < 0{C.RESET}")
-    print(f"    {C.DIM}category: Shopping{C.RESET}")
-    print(f"    {C.DIM}subcategory: Online{C.RESET}")
-    print(f"    {C.CYAN}tags: refund{C.RESET}")
-
-    section("Views (Optional)")
-    print(f"    {C.DIM}Group merchants into report sections with {C.RESET}{C.CYAN}config/views.rules{C.RESET}")
-    print(f"    {C.DIM}Views can overlap — same merchant can appear in multiple views{C.RESET}")
-    print()
-    print(f"    {C.DIM}[Every Month]")
-    print(f"    description: Consistent recurring expenses")
-    print(f"    filter: months >= 6 and cv < 0.3")
-    print()
-    print(f"    [Large Purchases]")
-    print(f"    filter: total > 1000 and months <= 2{C.RESET}")
-    print()
-    print(f"    {C.DIM}Primitives: months, total, cv, category, subcategory, tags, payments{C.RESET}")
-    print(f"    {C.DIM}Functions: sum(), avg(), count(), min(), max(), stddev(), by(){C.RESET}")
-    print(f"    {C.DIM}Grouping: sum(by(\"month\")) for monthly totals{C.RESET}")
-    print()
-    print(f"    {C.DIM}Run {C.RESET}{C.GREEN}tally reference{C.RESET}{C.DIM} for complete syntax documentation{C.RESET}")
+    print(f"    {C.GREEN}tally reference merchants{C.RESET}  {C.DIM}Merchant rules only{C.RESET}")
+    print(f"    {C.GREEN}tally reference views{C.RESET}      {C.DIM}View definitions only{C.RESET}")
     print()
 
 
